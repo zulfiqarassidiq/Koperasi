@@ -10,6 +10,8 @@ import 'core/theme/theme_provider.dart';
 import 'routes/app_router.dart';
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   // Inisialisasi SharedPreferences sebelum bootstrap
   // agar bisa di-inject sebagai override ke ProviderContainer
   final prefs = await SharedPreferences.getInstance();

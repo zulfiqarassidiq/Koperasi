@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,6 +9,7 @@ import '../../widgets/app_scaffold.dart';
 import '../../widgets/role_badge.dart';
 import '../../core/theme/theme_provider.dart';
 import '../auth/auth_providers.dart';
+import '../settings/thermal_printer_providers.dart';
 import 'settings_providers.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -97,6 +99,13 @@ class SettingsPage extends ConsumerWidget {
             const SizedBox(height: 24),
           ],
 
+          // Section: Perangkat — Printer Thermal (non-Web)
+          if (!kIsWeb) ...[
+            _SectionTitle(title: 'Perangkat'),
+            _ThermalPrinterTile(),
+            const SizedBox(height: 24),
+          ],
+
           // Section 4: Informasi Aplikasi
           _SectionTitle(title: 'Informasi Aplikasi'),
           const Card(
@@ -148,6 +157,84 @@ class SettingsPage extends ConsumerWidget {
             child: const Text('Keluar'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Tile untuk masuk ke pengaturan Printer Thermal.
+/// Menampilkan status koneksi printer aktif secara real-time.
+class _ThermalPrinterTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final printerState = ref.watch(thermalPrinterControllerProvider);
+    final isConnected = printerState.isConnected;
+    final isAutoReconnecting = printerState.isAutoReconnecting;
+
+    String subtitle;
+    if (isAutoReconnecting) {
+      subtitle = 'Menghubungkan...';
+    } else if (isConnected) {
+      final name = printerState.connectedPrinter?.name ??
+          printerState.connectedPrinter?.address ??
+          'Printer';
+      final width = printerState.connectedPaperWidth ?? 58;
+      subtitle = 'Terhubung: $name ($width mm)';
+    } else {
+      subtitle = 'Belum terhubung';
+    }
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        key: const ValueKey('tile_thermal_printer'),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: isConnected
+                ? Colors.green.shade50
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            Icons.print_rounded,
+            color: isConnected
+                ? Colors.green.shade600
+                : Theme.of(context).colorScheme.onSurfaceVariant,
+            size: 20,
+          ),
+        ),
+        title: const Text('Printer Thermal'),
+        subtitle: Row(
+          children: [
+            if (isConnected)
+              Container(
+                width: 7,
+                height: 7,
+                margin: const EdgeInsets.only(right: 5),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.green.shade500,
+                ),
+              ),
+            Flexible(
+              child: Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isConnected
+                      ? Colors.green.shade700
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () => context.push(AppRoutes.thermalPrinter),
       ),
     );
   }

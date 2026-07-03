@@ -1,32 +1,172 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 
 import '../../core/config/app_locale.dart';
 import '../../core/errors/app_exception.dart';
 import '../../data/models/transaksi_detail_item_model.dart';
 import '../../data/models/transaksi_model.dart';
 import '../../routes/app_routes.dart';
+import '../../services/pdf_receipt_generator.dart';
+import '../../services/receipt_service.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/loading_state.dart';
+import '../settings/thermal_printer_providers.dart';
 import 'transaksi_providers.dart';
 
-class TransaksiDetailPage extends ConsumerWidget {
+class TransaksiDetailPage extends ConsumerStatefulWidget {
   const TransaksiDetailPage({super.key, required this.transactionId});
 
   final String transactionId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final transactionState = ref.watch(transaksiDetailProvider(transactionId));
-    final itemsState = ref.watch(transaksiDetailItemsProvider(transactionId));
+  ConsumerState<TransaksiDetailPage> createState() =>
+      _TransaksiDetailPageState();
+}
+
+class _TransaksiDetailPageState extends ConsumerState<TransaksiDetailPage> {
+  bool _isPdfPrinting = false;
+  bool _isThermalPrinting = false;
+
+  // ── Lihat Struk (Preview PDF) ──────────────────────────────────────────────
+  Future<void> _onLihatStruk() async {
+    setState(() => _isPdfPrinting = true);
+    try {
+      final receiptData = await ref
+          .read(receiptServiceProvider)
+          .buildFromTransactionId(widget.transactionId);
+      final generator = ref.read(pdfReceiptGeneratorProvider);
+
+      if (!mounted) return;
+      await Printing.layoutPdf(
+        name: '${receiptData.nomorTransaksi}_struk',
+        onLayout: (_) async => generator.generate(receiptData),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e is AppException ? e.message : 'Gagal membuka struk.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPdfPrinting = false);
+    }
+  }
+
+  // ── Cetak Thermal ──────────────────────────────────────────────────────────
+  Future<void> _onCetakThermal() async {
+    // Jika printer belum connect, arahkan ke settings thermal
+    final printerState = ref.read(thermalPrinterControllerProvider);
+    if (!printerState.isConnected) {
+      if (mounted) context.push(AppRoutes.thermalPrinter);
+      return;
+    }
+
+    setState(() => _isThermalPrinting = true);
+    try {
+      final receiptData = await ref
+          .read(receiptServiceProvider)
+          .buildFromTransactionId(widget.transactionId);
+
+      final success = await ref
+          .read(thermalPrinterControllerProvider.notifier)
+          .printReceipt(receiptData);
+
+      if (mounted && success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Struk thermal berhasil dicetak!'),
+            backgroundColor: Colors.green.shade700,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e is AppException ? e.message : 'Gagal cetak thermal.',
+            ),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isThermalPrinting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final transactionState =
+        ref.watch(transaksiDetailProvider(widget.transactionId));
+    final itemsState =
+        ref.watch(transaksiDetailItemsProvider(widget.transactionId));
+
+    final isBusy = _isPdfPrinting || _isThermalPrinting;
+    final printerConnected = !kIsWeb &&
+        ref.watch(thermalPrinterControllerProvider).isConnected;
 
     return AppScaffold(
       title: 'Detail Transaksi',
       showBackButton: true,
       actions: [
+        // ── Loading indicator saat printing ──────────────────────────────────
+        if (isBusy)
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          )
+        else ...[
+          // ── Lihat / Cetak Struk PDF ─────────────────────────────────────
+          IconButton(
+            tooltip: 'Lihat / Cetak Struk (PDF)',
+            onPressed: _onLihatStruk,
+            icon: const Icon(Icons.receipt_long_outlined),
+          ),
+          // ── Cetak Thermal (Android & Windows saja) ──────────────────────
+          if (!kIsWeb)
+            IconButton(
+              tooltip: printerConnected
+                  ? 'Cetak Thermal'
+                  : 'Hubungkan Printer Thermal',
+              onPressed: _onCetakThermal,
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.print_rounded),
+                  if (printerConnected)
+                    Positioned(
+                      right: -2,
+                      top: -2,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade500,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.surface,
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
         IconButton(
           tooltip: 'Riwayat',
           onPressed: () => context.go(AppRoutes.transaksiHistory),
@@ -38,15 +178,16 @@ class TransaksiDetailPage extends ConsumerWidget {
             const LoadingState(message: 'Memuat detail transaksi...'),
         error: (error, stackTrace) => _DetailErrorState(
           message: _errorMessage(error),
-          onRetry: () => ref.invalidate(transaksiDetailProvider(transactionId)),
+          onRetry: () =>
+              ref.invalidate(transaksiDetailProvider(widget.transactionId)),
         ),
         data: (transaction) => itemsState.when(
           loading: () =>
               const LoadingState(message: 'Memuat item transaksi...'),
           error: (error, stackTrace) => _DetailErrorState(
             message: _errorMessage(error),
-            onRetry: () =>
-                ref.invalidate(transaksiDetailItemsProvider(transactionId)),
+            onRetry: () => ref
+                .invalidate(transaksiDetailItemsProvider(widget.transactionId)),
           ),
           data: (items) => _DetailContent(
             transaction: transaction,

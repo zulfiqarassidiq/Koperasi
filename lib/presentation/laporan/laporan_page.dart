@@ -1,7 +1,4 @@
-// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
-
-import 'dart:html' as html;
-import 'dart:typed_data';
+// ignore_for_file: deprecated_member_use
 
 import 'package:excel/excel.dart' hide Border;
 import 'package:flutter/material.dart';
@@ -11,11 +8,22 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import 'package:flutter/foundation.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../core/errors/app_exception.dart';
+import '../../routes/app_routes.dart';
+import '../../services/pdf_receipt_generator.dart';
+import '../../services/receipt_service.dart';
+import '../settings/thermal_printer_providers.dart';
+
 import '../../core/config/app_locale.dart';
+import '../../core/theme/app_theme.dart';
 import '../../domain/models/laporan_summary.dart';
 import '../../data/models/transaksi_model.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/loading_state.dart';
+import '../../utils/file_saver.dart';
 import 'laporan_provider.dart';
 
 class LaporanPage extends ConsumerWidget {
@@ -154,21 +162,11 @@ class LaporanPage extends ConsumerWidget {
       ['Jumlah Transaksi', data.jumlahTransaksi.toString()],
     ];
     final csv = rows.map((row) => row.map(_escapeCsv).join(',')).join('\n');
-    final blob = html.Blob([csv], 'text/csv;charset=utf-8');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    html.AnchorElement(href: url)
-      ..setAttribute('download', 'laporan-keuangan.csv')
-      ..click();
-    html.Url.revokeObjectUrl(url);
+    saveFileBytes(csv.codeUnits, 'laporan-keuangan.csv', 'text/csv;charset=utf-8');
   }
 
   void _downloadBytes(List<int> bytes, String filename, String mimeType) {
-    final blob = html.Blob([bytes], mimeType);
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    html.AnchorElement(href: url)
-      ..setAttribute('download', filename)
-      ..click();
-    html.Url.revokeObjectUrl(url);
+    saveFileBytes(bytes, filename, mimeType);
   }
 
   String _escapeCsv(String value) {
@@ -376,25 +374,25 @@ class _LaporanMetricsGrid extends StatelessWidget {
         label: 'Total Penjualan',
         value: currency.format(data.totalPenjualan),
         icon: Icons.point_of_sale_outlined,
-        color: const Color(0xFF1E88E5),
+        color: AppTheme.secondary,
       ),
       _MetricItem(
         label: 'Total Pengeluaran',
         value: currency.format(data.totalPengeluaran),
         icon: Icons.payments_outlined,
-        color: const Color(0xFFE53935),
+        color: AppTheme.error,
       ),
       _MetricItem(
         label: 'Laba Kotor',
         value: currency.format(data.labaKotor),
         icon: Icons.trending_up_outlined,
-        color: const Color(0xFF43A047),
+        color: AppTheme.success,
       ),
       _MetricItem(
         label: 'Jumlah Transaksi',
         value: NumberFormat.decimalPattern(AppLocale.formattingLocale).format(data.jumlahTransaksi),
         icon: Icons.receipt_long_outlined,
-        color: const Color(0xFF5E35B1),
+        color: AppTheme.accent,
       ),
     ];
 
@@ -829,14 +827,68 @@ class _DetailHeader extends StatelessWidget {
 
 // ─── Shared Body ─────────────────────────────────────────────────────────────
 
-class _DetailBody extends StatelessWidget {
+class _DetailBody extends ConsumerStatefulWidget {
   const _DetailBody({required this.transaction, required this.items});
 
   final TransaksiModel transaction;
   final List<Map<String, dynamic>> items;
 
   @override
+  ConsumerState<_DetailBody> createState() => _DetailBodyState();
+}
+
+class _DetailBodyState extends ConsumerState<_DetailBody> {
+  bool _isPdfPrinting = false;
+  bool _isThermalPrinting = false;
+
+  Future<void> _onCetakPdf() async {
+    setState(() => _isPdfPrinting = true);
+    try {
+      final receiptData = await ref.read(receiptServiceProvider).buildFromTransactionId(widget.transaction.id);
+      final generator = ref.read(pdfReceiptGeneratorProvider);
+      if (!mounted) return;
+      await Printing.layoutPdf(
+        name: '${receiptData.nomorTransaksi}_struk',
+        onLayout: (_) async => generator.generate(receiptData),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e is AppException ? e.message : 'Gagal membuka struk.')));
+      }
+    } finally {
+      if (mounted) setState(() => _isPdfPrinting = false);
+    }
+  }
+
+  Future<void> _onCetakThermal() async {
+    final printerState = ref.read(thermalPrinterControllerProvider);
+    if (!printerState.isConnected) {
+      if (mounted) {
+        Navigator.of(context).pop(); // close dialog
+        context.push(AppRoutes.thermalPrinter);
+      }
+      return;
+    }
+    setState(() => _isThermalPrinting = true);
+    try {
+      final receiptData = await ref.read(receiptServiceProvider).buildFromTransactionId(widget.transaction.id);
+      final success = await ref.read(thermalPrinterControllerProvider.notifier).printReceipt(receiptData);
+      if (mounted && success) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Struk thermal berhasil dicetak!'), backgroundColor: Colors.green.shade700));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e is AppException ? e.message : 'Gagal cetak thermal.'), backgroundColor: Theme.of(context).colorScheme.error));
+      }
+    } finally {
+      if (mounted) setState(() => _isThermalPrinting = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final transaction = widget.transaction;
+    final items = widget.items;
     final theme = Theme.of(context);
     final currency = NumberFormat.currency(locale: AppLocale.formattingLocale, symbol: 'Rp ', decimalDigits: 0);
 
@@ -1045,6 +1097,33 @@ class _DetailBody extends StatelessWidget {
               ),
             ],
           ),
+        ),
+        const SizedBox(height: 16),
+        
+        // ── Cetak Ulang Actions ──────────────────────────────────────────────
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            if (_isPdfPrinting || _isThermalPrinting)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              )
+            else ...[
+              OutlinedButton.icon(
+                onPressed: _onCetakPdf,
+                icon: const Icon(Icons.picture_as_pdf_outlined),
+                label: const Text('PDF'),
+              ),
+              const SizedBox(width: 8),
+              if (!kIsWeb)
+                ElevatedButton.icon(
+                  onPressed: _onCetakThermal,
+                  icon: const Icon(Icons.print_rounded),
+                  label: const Text('Thermal'),
+                ),
+            ],
+          ],
         ),
         const SizedBox(height: 8),
       ],

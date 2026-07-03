@@ -24,8 +24,7 @@ final authSessionProvider = StreamProvider<Session?>((ref) {
 // ─────────────────────────────────────────────────────────────────────────────
 /// Provider yang me-refresh setiap kali session berubah.
 /// Meng-expose UserProfileModel? yang sudah diambil dari Supabase.
-final currentProfileProvider =
-    FutureProvider<UserProfileModel?>((ref) async {
+final currentProfileProvider = FutureProvider<UserProfileModel?>((ref) async {
   // Dengarkan session agar refresh saat login/logout
   final sessionAsync = ref.watch(authSessionProvider);
   final session = sessionAsync.valueOrNull;
@@ -35,8 +34,7 @@ final currentProfileProvider =
 });
 
 /// Provider yang me-expose koperasi milik user yang sedang login.
-final currentKoperasiProvider =
-    FutureProvider<KoperasiModel?>((ref) async {
+final currentKoperasiProvider = FutureProvider<KoperasiModel?>((ref) async {
   final profileAsync = ref.watch(currentProfileProvider);
   final profile = profileAsync.valueOrNull;
   if (profile == null || !profile.hasKoperasi) return null;
@@ -92,8 +90,23 @@ class AuthController extends StateNotifier<AuthFormState> {
   }
 
   // ─── Logout ───────────────────────────────────────────────────────────────
+  /// Logout membersihkan state dan memanggil Supabase signOut.
+  /// GoRouter akan otomatis redirect ke login melalui AuthRouteRefresh listener
+  /// yang menangkap event AuthChangeEvent.signedOut dari onAuthStateChange.
   Future<void> logout() async {
-    await _run(_repository.logout);
+    state = const AuthFormState(isLoading: true);
+    try {
+      await _repository.logout();
+      // Reset state ke bersih — GoRouter akan handle redirect via refreshListenable
+      state = const AuthFormState();
+    } on AppException catch (error) {
+      state = AuthFormState(errorMessage: error.message);
+    } catch (_) {
+      // Meski ada error, tetap reset state agar tidak stuck di loading
+      state = const AuthFormState(
+        errorMessage: 'Gagal logout. Silakan coba lagi.',
+      );
+    }
   }
 
   // ─── Register ─────────────────────────────────────────────────────────────
@@ -126,7 +139,8 @@ class AuthController extends StateNotifier<AuthFormState> {
   Future<void> forgotPassword(String email) async {
     await _run(
       () => _repository.forgotPassword(email),
-      successMessage: 'Instruksi reset password sudah dikirim ke email.',
+      successMessage:
+          'Jika email terdaftar, tautan reset sudah dikirim. Periksa juga folder Spam.',
     );
   }
 

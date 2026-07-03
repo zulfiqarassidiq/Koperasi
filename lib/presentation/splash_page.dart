@@ -22,10 +22,10 @@ class SplashPage extends StatelessWidget {
                 color: colors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(32),
               ),
-              child: Icon(
-                Icons.point_of_sale_rounded,
-                size: 72,
-                color: colors.primary,
+              child: Image.asset(
+                'assets/Picture/ICON.png',
+                width: 72,
+                height: 72,
               ),
             )
                 .animate()

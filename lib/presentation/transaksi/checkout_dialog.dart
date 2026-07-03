@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/config/app_locale.dart';
 import 'transaksi_providers.dart';
+import 'transaksi_sukses_dialog.dart';
 
 class CheckoutDialog extends ConsumerWidget {
   const CheckoutDialog({super.key});
@@ -82,7 +83,14 @@ class CheckoutDialog extends ConsumerWidget {
                       .read(cartControllerProvider.notifier)
                       .checkout();
                   if (context.mounted && isSuccess) {
+                    // Pop checkout dialog terlebih dahulu
                     Navigator.of(context).pop();
+                    // Tampilkan dialog sukses dengan opsi struk
+                    await showDialog<void>(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (_) => const TransaksiSuksesDialog(),
+                    );
                   }
                 },
           icon: cart.isCheckingOut

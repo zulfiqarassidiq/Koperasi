@@ -25,6 +25,7 @@ class AppRoutes {
   static const pengeluaran = '/pengeluaran';
   static const laporan = '/laporan';
   static const settings = '/settings';
+  static const thermalPrinter = '/settings/thermal-printer';
   static const userManagement = '/user-management';
 
   // ─── Path builders ───────────────────────────────────────────────────────
@@ -32,4 +33,7 @@ class AppRoutes {
   static String produkEditPath(String id) => '/produk/$id/edit';
   static String stokDetailPath(String id) => '/stok/$id';
   static String transaksiDetailPath(String id) => '/transaksi/$id';
+
+  // Thermal printer path builder (tidak ada param dinamis, disediakan untuk konsistensi)
+  static String get thermalPrinterPath => thermalPrinter;
 }

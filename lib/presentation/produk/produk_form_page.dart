@@ -20,6 +20,9 @@ class ProdukFormPage extends ConsumerWidget {
     final categoriesState = ref.watch(produkKategoriProvider);
 
     if (!_isEditing) {
+      // Tambah Produk: ambil nomor urut berikutnya dari Supabase (per koperasi)
+      final nextKodeState = ref.watch(nextKodeProdukProvider);
+
       return categoriesState.when(
         loading: () => const AppScaffold(
           title: 'Tambah Produk',
@@ -31,7 +34,21 @@ class ProdukFormPage extends ConsumerWidget {
           message: 'Gagal memuat kategori.',
           onRetry: () => ref.invalidate(produkKategoriProvider),
         ),
-        data: (categories) => _ProdukFormContent(categories: categories),
+        data: (categories) => nextKodeState.when(
+          loading: () => const AppScaffold(
+            title: 'Tambah Produk',
+            showBackButton: true,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (_, __) => _ProdukFormContent(
+            categories: categories,
+            initialKodeProduk: 'PRD-000001',
+          ),
+          data: (kode) => _ProdukFormContent(
+            categories: categories,
+            initialKodeProduk: kode,
+          ),
+        ),
       );
     }
 
@@ -62,6 +79,8 @@ class ProdukFormPage extends ConsumerWidget {
         data: (categories) => _ProdukFormContent(
           product: product,
           categories: categories,
+          // Saat edit: kode produk tidak berubah, tetap milik produk tersebut
+          initialKodeProduk: product.kodeProduk,
         ),
       ),
     );
@@ -69,10 +88,15 @@ class ProdukFormPage extends ConsumerWidget {
 }
 
 class _ProdukFormContent extends ConsumerStatefulWidget {
-  const _ProdukFormContent({required this.categories, this.product});
+  const _ProdukFormContent({
+    required this.categories,
+    required this.initialKodeProduk,
+    this.product,
+  });
 
   final ProdukModel? product;
   final List<KategoriProdukModel> categories;
+  final String initialKodeProduk;
 
   @override
   ConsumerState<_ProdukFormContent> createState() => _ProdukFormContentState();
@@ -87,6 +111,7 @@ class _ProdukFormContentState extends ConsumerState<_ProdukFormContent> {
   late final TextEditingController _stokController;
   String? _kategoriId;
   bool _isSaving = false;
+  bool _isRegeneratingKode = false;
 
   bool get _isEditing => widget.product != null;
 
@@ -95,7 +120,7 @@ class _ProdukFormContentState extends ConsumerState<_ProdukFormContent> {
     super.initState();
     final product = widget.product;
     _kategoriId = product?.kategoriId;
-    _kodeController = TextEditingController(text: product?.kodeProduk ?? '');
+    _kodeController = TextEditingController(text: widget.initialKodeProduk);
     _namaController = TextEditingController(text: product?.namaProduk ?? '');
     _hargaBeliController = TextEditingController(
       text: product == null ? '0' : product.hargaBeli.toString(),
@@ -118,9 +143,26 @@ class _ProdukFormContentState extends ConsumerState<_ProdukFormContent> {
     super.dispose();
   }
 
+  /// Generate ulang kode produk saat user menekan tombol refresh.
+  Future<void> _regenerateKode() async {
+    setState(() => _isRegeneratingKode = true);
+    try {
+      final newKode =
+          await ref.read(produkControllerProvider.notifier).generateKode();
+      if (mounted) _kodeController.text = newKode;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal generate kode produk.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRegeneratingKode = false);
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isSaving = true);
 
     final product = ProdukModel(
@@ -162,6 +204,8 @@ class _ProdukFormContentState extends ConsumerState<_ProdukFormContent> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isBusy = _isSaving || _isRegeneratingKode;
     return AppScaffold(
       title: _isEditing ? 'Edit Produk' : 'Tambah Produk',
       showBackButton: true,
@@ -174,6 +218,7 @@ class _ProdukFormContentState extends ConsumerState<_ProdukFormContent> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // ── Kategori ──────────────────────────────────────────────
                   DropdownButtonFormField<String>(
                     initialValue: _kategoriId,
                     decoration: const InputDecoration(
@@ -188,7 +233,7 @@ class _ProdukFormContentState extends ConsumerState<_ProdukFormContent> {
                           ),
                         )
                         .toList(),
-                    onChanged: _isSaving
+                    onChanged: isBusy
                         ? null
                         : (value) => setState(() => _kategoriId = value),
                     validator: (value) {
@@ -199,21 +244,64 @@ class _ProdukFormContentState extends ConsumerState<_ProdukFormContent> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _kodeController,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Kode Produk',
-                      prefixIcon: Icon(Icons.qr_code_2_outlined),
-                    ),
-                    validator: (value) {
-                      if ((value ?? '').trim().isEmpty) {
-                        return 'Kode produk wajib diisi.';
-                      }
-                      return null;
-                    },
+
+                  // ── Kode Produk (READ ONLY) + tombol Generate Ulang ───────
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _kodeController,
+                          // TASK 3 & 4: field READ ONLY — tidak dapat diedit user
+                          readOnly: true,
+                          decoration: InputDecoration(
+                            labelText: 'Kode Produk',
+                            prefixIcon: const Icon(Icons.qr_code_2_outlined),
+                            filled: true,
+                            fillColor: theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.4),
+                            helperText: _isEditing
+                              ? 'Kode produk tidak dapat diubah'
+                              : 'Kode produk dibuat otomatis oleh sistem.',
+                            helperStyle: TextStyle(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                          // Validator tetap ada agar Form.validate() lulus
+                          validator: (value) {
+                            if ((value ?? '').trim().isEmpty) {
+                              return 'Kode produk tidak boleh kosong.';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      // Tombol refresh hanya muncul saat mode Tambah Produk
+                      if (!_isEditing) ...[
+                        const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Tooltip(
+                            message: 'Generate ulang kode produk',
+                            child: IconButton.outlined(
+                              onPressed: _isSaving ? null : _regenerateKode,
+                              icon: const Icon(Icons.refresh_rounded),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
+
                   const SizedBox(height: 16),
+
+                  // ── Nama Produk ───────────────────────────────────────────
                   TextFormField(
                     controller: _namaController,
                     textInputAction: TextInputAction.next,
@@ -230,12 +318,16 @@ class _ProdukFormContentState extends ConsumerState<_ProdukFormContent> {
                     },
                   ),
                   const SizedBox(height: 16),
+
+                  // ── Harga & Stok ──────────────────────────────────────────
                   _NumberFields(
                     hargaBeliController: _hargaBeliController,
                     hargaJualController: _hargaJualController,
                     stokController: _stokController,
                   ),
                   const SizedBox(height: 24),
+
+                  // ── Submit ────────────────────────────────────────────────
                   FilledButton.icon(
                     onPressed: _isSaving ? null : _submit,
                     icon: _isSaving
@@ -264,6 +356,8 @@ class _ProdukFormContentState extends ConsumerState<_ProdukFormContent> {
     return int.tryParse(value.replaceAll('.', '')) ?? 0;
   }
 }
+
+// ─── Helper Widgets ───────────────────────────────────────────────────────────
 
 class _NumberFields extends StatelessWidget {
   const _NumberFields({

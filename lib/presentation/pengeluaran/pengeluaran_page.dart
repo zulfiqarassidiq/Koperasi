@@ -8,6 +8,8 @@ import '../../data/models/pengeluaran_model.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/loading_state.dart';
+import '../../data/models/user_profile_model.dart';
+import '../auth/auth_providers.dart';
 import 'pengeluaran_form_dialog.dart';
 import 'pengeluaran_providers.dart';
 
@@ -84,6 +86,8 @@ class PengeluaranPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pengeluaranState = ref.watch(pengeluaranControllerProvider);
     final search = ref.watch(pengeluaranSearchProvider);
+    final profile = ref.watch(currentProfileProvider).valueOrNull;
+    final canDelete = profile?.role.canDeletePengeluaran ?? false;
 
     return AppScaffold(
       title: 'Pengeluaran',
@@ -125,6 +129,7 @@ class PengeluaranPage extends ConsumerWidget {
 
                 return _PengeluaranList(
                   items: items,
+                  canDelete: canDelete,
                   onDelete: (item) => _confirmDelete(context, ref, item),
                 );
               },
@@ -206,10 +211,12 @@ class _PengeluaranSearchFieldState
 class _PengeluaranList extends StatelessWidget {
   const _PengeluaranList({
     required this.items,
+    required this.canDelete,
     required this.onDelete,
   });
 
   final List<PengeluaranModel> items;
+  final bool canDelete;
   final void Function(PengeluaranModel) onDelete;
 
   @override
@@ -249,11 +256,12 @@ class _PengeluaranList extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton(
-                  tooltip: 'Hapus',
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () => onDelete(item),
-                ),
+                if (canDelete)
+                  IconButton(
+                    tooltip: 'Hapus',
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () => onDelete(item),
+                  ),
               ],
             ),
           ),

@@ -7,11 +7,19 @@ import '../../data/models/produk_model.dart';
 import '../../data/models/transaksi_detail_item_model.dart';
 import '../../data/models/transaksi_model.dart';
 import '../../data/repositories/transaksi_repository.dart';
+import '../../domain/models/receipt_data.dart';
+import '../../services/receipt_service.dart';
 import '../auth/auth_providers.dart';
 import '../dashboard/dashboard_providers.dart';
 import '../produk/produk_providers.dart';
 
 const paymentMethods = ['Cash', 'Transfer', 'QRIS'];
+
+/// Menyimpan [ReceiptData] dari transaksi yang baru saja berhasil.
+/// Di-reset ke null saat dialog transaksi sukses ditutup (via clearReceipt).
+/// Digunakan oleh [TransaksiSuksesDialog] untuk preview & cetak PDF.
+final receiptDataAfterCheckoutProvider =
+    StateProvider<ReceiptData?>((ref) => null);
 
 final transaksiProductSearchProvider =
     StateProvider.autoDispose<String>((ref) => '');
@@ -69,6 +77,10 @@ class CartState {
   final bool isCheckingOut;
   final String? errorMessage;
   final String? successMessage;
+
+  /// Snapshot items saat checkout untuk membangun ReceiptData.
+  /// Cart items di-clear setelah checkout berhasil sehingga perlu di-capture dulu.
+  List<CartItemModel> get itemsSnapshot => List.unmodifiable(items);
 
   num get grandTotal {
     return items.fold<num>(0, (sum, item) => sum + item.subtotal);
@@ -164,13 +176,15 @@ class CartController extends StateNotifier<CartState> {
   }
 
   /// Checkout transaksi, otomatis menyisipkan koperasi_id dari profil user.
+  /// Setelah berhasil, membangun [ReceiptData] dan menyimpannya di
+  /// [receiptDataAfterCheckoutProvider] untuk ditampilkan di dialog sukses.
   Future<bool> checkout() async {
     if (state.items.isEmpty) {
       state = state.copyWith(errorMessage: 'Keranjang tidak boleh kosong.');
       return false;
     }
 
-    // Ambil koperasi_id dari profil user yang sedang login
+    // Ambil profil dan koperasi user yang sedang login
     final profile = await _ref.read(currentProfileProvider.future);
     final koperasiId = profile?.koperasiId ?? '';
     if (koperasiId.isEmpty) {
@@ -182,16 +196,54 @@ class CartController extends StateNotifier<CartState> {
       return false;
     }
 
+    final koperasi = await _ref.read(currentKoperasiProvider.future);
+    if (koperasi == null) {
+      debugPrint('[CartController.checkout] ERROR: data koperasi tidak ditemukan!');
+      state = state.copyWith(
+        isCheckingOut: false,
+        errorMessage: 'Data koperasi tidak ditemukan. Silakan login ulang.',
+      );
+      return false;
+    }
+
+    // Snapshot items sebelum cart di-clear
+    final cartItemsSnapshot = state.itemsSnapshot.toList();
+    final paymentMethodSnapshot = state.paymentMethod;
+    final now = DateTime.now();
+
     state = state.copyWith(isCheckingOut: true, clearMessages: true);
 
     try {
-      await _repository.checkout(
-        items: state.items,
-        paymentMethod: state.paymentMethod,
+      final transaction = await _repository.checkout(
+        items: cartItemsSnapshot,
+        paymentMethod: paymentMethodSnapshot,
         koperasiId: koperasiId,
       );
+
+      // Bangun ReceiptData dari data yang sudah ada di memori (tanpa re-fetch)
+      if (profile != null) {
+        try {
+          final receiptData = _ref.read(receiptServiceProvider).buildFromCart(
+                cartItems: cartItemsSnapshot,
+                profile: profile,
+                koperasi: koperasi,
+                transactionId: transaction.id,
+                tanggal: transaction.tanggal.isAfter(
+                        DateTime(2000))
+                    ? transaction.tanggal
+                    : now,
+                paymentMethod: paymentMethodSnapshot,
+              );
+          _ref.read(receiptDataAfterCheckoutProvider.notifier).state =
+              receiptData;
+        } catch (e) {
+          // Receipt building tidak boleh memblok checkout sukses
+          debugPrint('[CartController.checkout] Gagal build ReceiptData: $e');
+        }
+      }
+
       state = CartState(
-        paymentMethod: state.paymentMethod,
+        paymentMethod: paymentMethodSnapshot,
         successMessage: 'Checkout berhasil.',
       );
       _ref.invalidate(transaksiProductResultsProvider);

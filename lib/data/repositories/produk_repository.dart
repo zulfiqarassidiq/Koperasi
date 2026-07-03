@@ -66,6 +66,44 @@ class ProdukRepository {
     }
   }
 
+  /// Generate kode produk nomor urut berikutnya untuk koperasi ini.
+  ///
+  /// Format: PRD-000001, PRD-000002, PRD-000003, dst.
+  /// Kode di-scope per koperasi_id:
+  ///   - Koperasi A: PRD-000001 ✅
+  ///   - Koperasi B: PRD-000001 ✅  (constraint DB: UNIQUE(koperasi_id, kode_produk))
+  ///   - Koperasi A: PRD-000001 lagi ✗ ditolak oleh DB
+  Future<String> generateKodeProduk({required String koperasiId}) async {
+    try {
+      // Query hanya kode produk milik koperasi ini dengan format PRD-XXXXXX
+      final response = await _client
+          .from(SupabaseTables.produk)
+          .select('kode_produk')
+          .eq('koperasi_id', koperasiId)
+          .like('kode_produk', 'PRD-%');
+
+      int maxNumber = 0;
+      for (final row in response) {
+        final kode = row['kode_produk'] as String? ?? '';
+        final parts = kode.split('-');
+        if (parts.length == 2) {
+          final number = int.tryParse(parts[1]);
+          if (number != null && number > maxNumber) {
+            maxNumber = number;
+          }
+        }
+      }
+
+      final nextNumber = maxNumber + 1;
+      final kode = 'PRD-${nextNumber.toString().padLeft(6, '0')}';
+      debugPrint('[ProdukRepository.generateKodeProduk] Generated: $kode for koperasi: $koperasiId');
+      return kode;
+    } on PostgrestException catch (error) {
+      debugPrint('[ProdukRepository.generateKodeProduk] ERROR: ${error.message}');
+      throw AppException(error.message, code: error.code);
+    }
+  }
+
   /// Ambil kategori hanya milik koperasi ini.
   Future<List<KategoriProdukModel>> findCategories({
     required String koperasiId,

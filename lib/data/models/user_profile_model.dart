@@ -27,12 +27,15 @@ extension UserRoleExtension on UserRole {
   /// Stok: owner, admin, kasir semua bisa kelola stok.
   bool get canManageStock => true;
 
-  /// Pengeluaran: hanya owner dan admin.
-  bool get canManagePengeluaran =>
+  /// Pengeluaran: semua role (owner, admin, kasir) bisa melihat/tambah pengeluaran.
+  bool get canManagePengeluaran => true;
+
+  /// Hapus Pengeluaran: hanya owner dan admin.
+  bool get canDeletePengeluaran =>
       this == UserRole.owner || this == UserRole.admin;
 
-  /// Laporan: hanya owner dan admin.
-  bool get canViewReports => this == UserRole.owner || this == UserRole.admin;
+  /// Laporan: semua role (owner, admin, kasir) bisa melihat laporan operasionalnya.
+  bool get canViewReports => true;
 
   /// User management / invite: hanya owner dan admin.
   bool get canManageUsers => this == UserRole.owner || this == UserRole.admin;

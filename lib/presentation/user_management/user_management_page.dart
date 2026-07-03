@@ -10,6 +10,7 @@ import '../../widgets/empty_state.dart';
 import '../../widgets/loading_state.dart';
 import '../../widgets/role_guard.dart';
 import '../auth/auth_providers.dart';
+import '../../core/theme/app_theme.dart';
 import 'user_management_providers.dart';
 
 class UserManagementPage extends ConsumerStatefulWidget {
@@ -287,11 +288,11 @@ class _MemberTile extends ConsumerWidget {
   Color _roleColor(UserRole role) {
     switch (role) {
       case UserRole.owner:
-        return const Color(0xFF7C3AED);
+        return AppTheme.primary;
       case UserRole.admin:
-        return const Color(0xFF0891B2);
+        return AppTheme.secondary;
       case UserRole.kasir:
-        return const Color(0xFF059669);
+        return AppTheme.accent;
     }
   }
 }
@@ -482,8 +483,8 @@ class _InviteTile extends ConsumerWidget {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: (isPending
-                        ? const Color(0xFFF59E0B)
-                        : const Color(0xFF10B981))
+                        ? AppTheme.warning
+                        : AppTheme.success)
                     .withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -493,8 +494,8 @@ class _InviteTile extends ConsumerWidget {
                     : Icons.check_circle_rounded,
                 size: 22,
                 color: isPending
-                    ? const Color(0xFFF59E0B)
-                    : const Color(0xFF10B981),
+                    ? AppTheme.warning
+                    : AppTheme.success,
               ),
             ),
             const SizedBox(width: 12),
@@ -694,9 +695,9 @@ class _InviteDialogState extends ConsumerState<_InviteDialog> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF4),
+                color: AppTheme.accent.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF86EFAC)),
+                border: Border.all(color: AppTheme.accent.withValues(alpha: 0.3)),
               ),
               child: Text(
                 _selectedRole == UserRole.admin
@@ -704,7 +705,7 @@ class _InviteDialogState extends ConsumerState<_InviteDialog> {
                     : 'Kasir: akses transaksi dan lihat produk/stok saja.',
                 style: const TextStyle(
                   fontSize: 12,
-                  color: Color(0xFF166534),
+                  color: AppTheme.secondary,
                 ),
               ),
             ),
@@ -743,9 +744,9 @@ class _RoleBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (role) {
-      UserRole.owner => ('Owner', const Color(0xFF7C3AED)),
-      UserRole.admin => ('Admin', const Color(0xFF0891B2)),
-      UserRole.kasir => ('Kasir', const Color(0xFF059669)),
+      UserRole.owner => ('Owner', AppTheme.primary),
+      UserRole.admin => ('Admin', AppTheme.secondary),
+      UserRole.kasir => ('Kasir', AppTheme.accent),
     };
 
     return Container(
@@ -774,9 +775,9 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
-      InviteStatus.pending => ('Menunggu', const Color(0xFFF59E0B)),
-      InviteStatus.accepted => ('Diterima', const Color(0xFF10B981)),
-      InviteStatus.rejected => ('Ditolak', const Color(0xFFEF4444)),
+      InviteStatus.pending => ('Menunggu', AppTheme.warning),
+      InviteStatus.accepted => ('Diterima', AppTheme.success),
+      InviteStatus.rejected => ('Ditolak', AppTheme.error),
     };
 
     return Container(

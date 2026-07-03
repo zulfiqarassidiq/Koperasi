@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/config/auth_links.dart';
 import 'supabase_service.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) {
@@ -55,7 +56,10 @@ class AuthService {
 
   // ─── Password ─────────────────────────────────────────────────────────────
   Future<void> sendPasswordResetEmail(String email) {
-    return _client.auth.resetPasswordForEmail(email);
+    return _client.auth.resetPasswordForEmail(
+      email,
+      redirectTo: AuthLinks.passwordResetUrl,
+    );
   }
 
   Future<UserResponse> changePassword(String password) {
@@ -65,11 +69,8 @@ class AuthService {
   // ─── Profile ──────────────────────────────────────────────────────────────
   /// Ambil profil user dari tabel profiles.
   Future<Map<String, dynamic>?> getUserProfile(String userId) async {
-    final result = await _client
-        .from('profiles')
-        .select()
-        .eq('id', userId)
-        .maybeSingle();
+    final result =
+        await _client.from('profiles').select().eq('id', userId).maybeSingle();
     return result;
   }
 
@@ -96,13 +97,9 @@ class AuthService {
 
   // ─── Koperasi ─────────────────────────────────────────────────────────────
   /// Insert koperasi baru dan kembalikan data lengkapnya.
-  Future<Map<String, dynamic>> insertKoperasi(
-      Map<String, dynamic> data) async {
-    final result = await _client
-        .from('koperasi')
-        .insert(data)
-        .select()
-        .single();
+  Future<Map<String, dynamic>> insertKoperasi(Map<String, dynamic> data) async {
+    final result =
+        await _client.from('koperasi').insert(data).select().single();
     return result;
   }
 
@@ -126,7 +123,7 @@ class AuthService {
     if (namaKoperasi != null) updates['nama_koperasi'] = namaKoperasi;
     if (alamat != null) updates['alamat'] = alamat;
     if (telepon != null) updates['telepon'] = telepon;
-    
+
     if (updates.isEmpty) return;
 
     await _client.from('koperasi').update(updates).eq('id', koperasiId);
@@ -136,7 +133,8 @@ class AuthService {
   /// Cek apakah email ada di tabel user_invites dengan status pending.
   Future<Map<String, dynamic>?> getPendingInvite(String email) async {
     final normalizedEmail = email.toLowerCase().trim();
-    debugPrint('[AuthService.getPendingInvite] Querying user_invites for email: $normalizedEmail');
+    debugPrint(
+        '[AuthService.getPendingInvite] Querying user_invites for email: $normalizedEmail');
     try {
       final result = await _client
           .from('user_invites')
@@ -157,11 +155,9 @@ class AuthService {
     debugPrint('[AuthService.acceptInvite] Updating invite id: $inviteId');
     await _client
         .from('user_invites')
-        .update({'status': 'accepted'})
-        .eq('id', inviteId);
+        .update({'status': 'accepted'}).eq('id', inviteId);
     debugPrint('[AuthService.acceptInvite] Done.');
   }
-
 
   /// Kirim invite baru (dari owner).
   Future<void> sendInvite({

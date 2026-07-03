@@ -28,6 +28,10 @@ dependencies:
   flutter_blurhash: ^0.9.1
   animations: ^2.2.0
   shared_preferences: ^2.5.5
+  app_links: ^7.0.0
+  flutter_thermal_printer: 1.2.1+1
+  esc_pos_utils_plus: ^2.0.4
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:
@@ -42,3 +46,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/env/.env
+    - assets/Picture/ICON.png
+    - assets/Picture/latar_belakang.png

@@ -31,6 +31,17 @@ final produkKategoriProvider =
       .findCategories(koperasiId: koperasiId);
 });
 
+/// Generate kode produk nomor urut berikutnya, di-scope per koperasi.
+/// Aman digunakan karena DB constraint sudah UNIQUE(koperasi_id, kode_produk).
+final nextKodeProdukProvider = FutureProvider.autoDispose<String>((ref) async {
+  final profile = await ref.watch(currentProfileProvider.future);
+  final koperasiId = profile?.koperasiId ?? '';
+  if (koperasiId.isEmpty) return 'PRD-000001';
+  return ref
+      .watch(produkRepositoryProvider)
+      .generateKodeProduk(koperasiId: koperasiId);
+});
+
 class ProdukController extends AutoDisposeAsyncNotifier<List<ProdukModel>> {
   ProdukRepository get _repository => ref.read(produkRepositoryProvider);
 
@@ -104,5 +115,12 @@ class ProdukController extends AutoDisposeAsyncNotifier<List<ProdukModel>> {
     final id = profile?.koperasiId;
     if (id == null || id.isEmpty) return null;
     return id;
+  }
+
+  /// Generate kode produk on-demand (untuk tombol refresh di form).
+  Future<String> generateKode() async {
+    final koperasiId = await _getKoperasiId();
+    if (koperasiId == null) return 'PRD-000001';
+    return _repository.generateKodeProduk(koperasiId: koperasiId);
   }
 }

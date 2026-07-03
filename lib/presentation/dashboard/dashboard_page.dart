@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/config/app_locale.dart';
 import '../../core/errors/app_exception.dart';
+import '../../core/theme/app_theme.dart';
 import '../../data/models/dashboard_stats_model.dart';
 
 import '../../data/models/user_profile_model.dart';
@@ -51,24 +52,33 @@ class DashboardPage extends ConsumerWidget {
           icon: const Icon(Icons.refresh),
         ),
       ],
-      child: RefreshIndicator(
-        onRefresh: () async => ref.refresh(dashboardStatsProvider.future),
-        child: statsState.when(
-          loading: () => const _DashboardLoadingState(),
-          error: (error, stackTrace) => _DashboardErrorState(
-            message: _errorMessage(error),
-            onRetry: () => ref.invalidate(dashboardStatsProvider),
+      child: Stack(
+        children: [
+          const Positioned.fill(
+            child: _AnimatedBackgroundPattern(),
           ),
-          data: (stats) => _DashboardContent(
-            stats: stats,
-            userName: profile?.nama.isNotEmpty == true
-                ? profile!.nama
-                : 'User',
-            email: session?.user.email ?? '-',
-            userRole: profile?.role,
-            koperasiName: koperasi?.namaKoperasi,
+          Positioned.fill(
+            child: RefreshIndicator(
+              onRefresh: () async => ref.refresh(dashboardStatsProvider.future),
+              child: statsState.when(
+                loading: () => const _DashboardLoadingState(),
+                error: (error, stackTrace) => _DashboardErrorState(
+                  message: _errorMessage(error),
+                  onRetry: () => ref.invalidate(dashboardStatsProvider),
+                ),
+                data: (stats) => _DashboardContent(
+                  stats: stats,
+                  userName: profile?.nama.isNotEmpty == true
+                      ? profile!.nama
+                      : 'User',
+                  email: session?.user.email ?? '-',
+                  userRole: profile?.role,
+                  koperasiName: koperasi?.namaKoperasi,
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -101,7 +111,6 @@ class _DashboardContent extends StatelessWidget {
       symbol: 'Rp ',
       decimalDigits: 0,
     );
-    final isKasir = userRole == UserRole.kasir;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -146,7 +155,7 @@ class _DashboardContent extends StatelessWidget {
                   value: NumberFormat.decimalPattern(AppLocale.formattingLocale)
                       .format(stats.todayTransactions),
                   icon: Icons.receipt_long_rounded,
-                  color: const Color(0xFF0D9488),
+                  color: AppTheme.accent,
                 )
                     .animate(delay: 300.ms)
                     .fadeIn()
@@ -155,21 +164,20 @@ class _DashboardContent extends StatelessWidget {
                   title: 'Penjualan',
                   value: currency.format(stats.todaySalesAmount),
                   icon: Icons.point_of_sale_rounded,
-                  color: const Color(0xFF0891B2),
+                  color: AppTheme.secondary,
                 )
                     .animate(delay: 400.ms)
                     .fadeIn()
                     .scale(begin: const Offset(0.8, 0.8)),
-                if (!isKasir)
-                  DashboardStatCard(
-                    title: 'Pengeluaran',
-                    value: currency.format(stats.todayExpenses),
-                    icon: Icons.payments_rounded,
-                    color: const Color(0xFFE11D48),
-                  )
-                      .animate(delay: 500.ms)
-                      .fadeIn()
-                      .scale(begin: const Offset(0.8, 0.8)),
+                DashboardStatCard(
+                  title: 'Pengeluaran',
+                  value: currency.format(stats.todayExpenses),
+                  icon: Icons.payments_rounded,
+                  color: AppTheme.error,
+                )
+                    .animate(delay: 500.ms)
+                    .fadeIn()
+                    .scale(begin: const Offset(0.8, 0.8)),
               ]),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -418,56 +426,56 @@ class _DashboardModules extends StatelessWidget {
         'Transaksi',
         Icons.point_of_sale_rounded,
         AppRoutes.transaksi,
-        const Color(0xFF0F766E),
+        AppTheme.primary,
         false,
       ),
       (
         'Produk',
         Icons.inventory_2_rounded,
         AppRoutes.produk,
-        const Color(0xFF1E40AF),
+        AppTheme.secondary,
         false,
       ),
       (
         'Stok',
         Icons.add_box_rounded,
         AppRoutes.stok,
-        const Color(0xFFB45309),
+        AppTheme.warning,
         false, // kasir bisa lihat stok
       ),
       (
         'Kategori',
         Icons.category_rounded,
         AppRoutes.kategori,
-        const Color(0xFF0369A1),
+        AppTheme.accent,
         false, // kasir bisa kelola kategori
       ),
       (
         'Pengeluaran',
         Icons.payments_rounded,
         AppRoutes.pengeluaran,
-        const Color(0xFFBE123C),
-        true,
+        AppTheme.error,
+        false, // kasir sekarang bisa mengelola pengeluaran
       ),
       (
         'Laporan',
         Icons.bar_chart_rounded,
         AppRoutes.laporan,
-        const Color(0xFF7E22CE),
-        true,
+        AppTheme.primary,
+        false, // kasir bisa melihat laporan (sudah difilter by koperasi_id)
       ),
       (
         'Anggota',
         Icons.group_rounded,
         AppRoutes.userManagement,
-        const Color(0xFF065F46),
+        AppTheme.secondary,
         true,
       ),
       (
         'Settings',
         Icons.settings_rounded,
         AppRoutes.settings,
-        const Color(0xFF334155),
+        AppTheme.secondary,
         false, // kasir bisa buka settings tapi isinya dibatasi (akun saja)
       ),
     ];
@@ -542,6 +550,68 @@ class _DashboardErrorState extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AnimatedBackgroundPattern extends StatelessWidget {
+  const _AnimatedBackgroundPattern();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          top: -100,
+          left: -50,
+          child: Container(
+            width: 350,
+            height: 350,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppTheme.primary.withValues(alpha: 0.05),
+            ),
+          )
+              .animate(onPlay: (controller) => controller.repeat(reverse: true))
+              .slide(
+                begin: const Offset(0, 0),
+                end: const Offset(0.15, 0.15),
+                duration: 15000.ms,
+                curve: Curves.easeInOutSine,
+              )
+              .scale(
+                begin: const Offset(1, 1),
+                end: const Offset(1.15, 1.15),
+                duration: 20000.ms,
+                curve: Curves.easeInOutSine,
+              ),
+        ),
+        Positioned(
+          bottom: 100,
+          right: -100,
+          child: Container(
+            width: 450,
+            height: 450,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppTheme.primary.withValues(alpha: 0.04),
+            ),
+          )
+              .animate(onPlay: (controller) => controller.repeat(reverse: true))
+              .slide(
+                begin: const Offset(0, 0),
+                end: const Offset(-0.1, -0.15),
+                duration: 18000.ms,
+                curve: Curves.easeInOutSine,
+              )
+              .scale(
+                begin: const Offset(1, 1),
+                end: const Offset(1.2, 1.2),
+                duration: 25000.ms,
+                curve: Curves.easeInOutSine,
+              ),
+        ),
+      ],
     );
   }
 }

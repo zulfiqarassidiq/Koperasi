@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,38 +49,50 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       body: Stack(
         children: [
           // Background Decoration
-          Positioned(
-            top: -100,
-            right: -100,
+          // Animated Background Image
+          Positioned.fill(
+            child: Image.asset(
+              'assets/Picture/latar_belakang.png',
+              fit: BoxFit.cover,
+            )
+                .animate(
+                  onPlay: (controller) => controller.repeat(reverse: true),
+                )
+                .scale(
+                  begin: const Offset(1.0, 1.0),
+                  end: const Offset(1.1, 1.1),
+                  duration: 20000.ms,
+                  curve: Curves.easeInOutSine,
+                ),
+          ),
+          // Overlay for contrast
+          Positioned.fill(
             child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: theme.colorScheme.primary.withValues(alpha: 0.05),
-              ),
+              color: Colors.black.withValues(alpha: 0.2),
             ),
-          ).animate().scale(duration: 1200.ms, curve: Curves.easeOutBack),
-          Positioned(
-            bottom: -50,
-            left: -50,
-            child: Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: theme.colorScheme.secondary.withValues(alpha: 0.05),
-              ),
-            ),
-          ).animate().scale(delay: 200.ms, duration: 1200.ms),
+          ),
 
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(32),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
-                  child: Form(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(32),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                      child: Container(
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(32),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Form(
                     key: _formKey,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -93,10 +107,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(30),
                             ),
-                            child: Icon(
-                              Icons.point_of_sale_rounded,
-                              size: 64,
-                              color: theme.colorScheme.primary,
+                            child: Image.asset(
+                              'assets/Picture/ICON.png',
+                              width: 64,
+                              height: 64,
                             ),
                           ),
                         ).animate().fadeIn().scale(duration: 600.ms),
@@ -253,8 +267,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
             ),
           ),
-        ],
+        ),
       ),
-    );
+    ),
+  ],
+),
+);
   }
 }

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/config/app_locale.dart';
 import '../../core/errors/app_exception.dart';
+import '../../core/theme/app_theme.dart';
 import '../../data/models/produk_model.dart';
 import '../../routes/app_routes.dart';
 import '../../widgets/app_scaffold.dart';
@@ -255,7 +256,7 @@ class _ProdukCard extends StatelessWidget {
                         style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
-                          color: Color(0xFF1E293B),
+                          color: AppTheme.secondary,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -279,20 +280,32 @@ class _ProdukCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'Stok: ${product.stok}',
-                              style: TextStyle(
-                                color: theme.colorScheme.primary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                          Builder(
+                            builder: (context) {
+                              final isOutOfStock = product.stok <= 0;
+                              final isLowStock = product.stok > 0 && product.stok <= 10;
+                              final stokColor = isOutOfStock
+                                  ? AppTheme.error
+                                  : isLowStock
+                                      ? AppTheme.warning
+                                      : AppTheme.success;
+                                      
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: stokColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  isOutOfStock ? 'Stok Habis' : 'Stok: ${product.stok}',
+                                  style: TextStyle(
+                                    color: stokColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              );
+                            }
                           ),
                         ],
                       ),
@@ -304,11 +317,11 @@ class _ProdukCard extends StatelessWidget {
                   children: [
                     IconButton(
                       onPressed: () => onEdit(product),
-                      icon: const Icon(Icons.edit_note_rounded, color: Colors.blue),
+                      icon: const Icon(Icons.edit_note_rounded, color: AppTheme.secondary),
                     ),
                     IconButton(
                       onPressed: () => onDelete(product),
-                      icon: const Icon(Icons.delete_sweep_rounded, color: Colors.red),
+                      icon: const Icon(Icons.delete_sweep_rounded, color: AppTheme.error),
                     ),
                   ],
                 ),

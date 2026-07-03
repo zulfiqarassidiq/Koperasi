@@ -1,9 +1,12 @@
 import 'dart:async';
 
+import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/config/auth_links.dart';
 import '../data/models/user_profile_model.dart';
 import '../presentation/auth/auth_providers.dart';
 import '../presentation/auth/change_password_page.dart';
@@ -19,6 +22,7 @@ import '../presentation/produk/produk_detail_page.dart';
 import '../presentation/produk/produk_form_page.dart';
 import '../presentation/produk/produk_page.dart';
 import '../presentation/settings/settings_page.dart';
+import '../presentation/settings/thermal_printer_page.dart';
 import '../presentation/splash_page.dart';
 import '../presentation/stok/stok_detail_page.dart';
 import '../presentation/stok/stok_form_page.dart';
@@ -38,12 +42,10 @@ import 'app_routes.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Route yang tidak boleh diakses oleh Kasir.
-/// Kasir BOLEH: transaksi, produk (CRUD), kategori (CRUD), stok (CRUD), settings (akun)
-/// Kasir TIDAK BOLEH: user management, pengeluaran, laporan
+/// Kasir BOLEH: transaksi, produk (CRUD), kategori (CRUD), stok (CRUD), settings (akun), laporan, pengeluaran (CRUD tanpa delete)
+/// Kasir TIDAK BOLEH: user management
 const _kasirBlockedRoutes = {
   AppRoutes.userManagement,
-  AppRoutes.pengeluaran,
-  AppRoutes.laporan,
 };
 
 /// Cek apakah route diblokir untuk role kasir.
@@ -80,10 +82,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: AppRoutes.splash,
     refreshListenable: refreshListenable,
     redirect: (context, state) async {
-      // FIX: Mencegah GoRouter memotong navigasi saat proses Auth sedang berjalan
-      final authState = ref.read(authControllerProvider);
-      if (authState.isLoading) return null;
-
       final session = authRepository.currentSession;
       final isAuthenticated = session != null;
       final location = state.matchedLocation;
@@ -91,6 +89,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isSplash = location == AppRoutes.splash;
       final isPublic = _publicRoutes.contains(location);
       final isOnboarding = _onboardingRoutes.contains(location);
+
+      if (refreshListenable.takePasswordRecovery() &&
+          location != AppRoutes.changePassword) {
+        return AppRoutes.changePassword;
+      }
 
       // ── Splash ────────────────────────────────────────────────────────────
       if (isSplash) {
@@ -198,8 +201,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.produkDetail,
         builder: (context, state) {
-          return ProdukDetailPage(
-              productId: state.pathParameters['id'] ?? '');
+          return ProdukDetailPage(productId: state.pathParameters['id'] ?? '');
         },
       ),
       GoRoute(
@@ -249,6 +251,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SettingsPage(),
       ),
       GoRoute(
+        path: AppRoutes.thermalPrinter,
+        builder: (context, state) => const ThermalPrinterPage(),
+      ),
+      GoRoute(
         path: AppRoutes.userManagement,
         builder: (context, state) => const UserManagementPage(),
       ),
@@ -260,16 +266,52 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 // Auth Route Refresh Notifier
 // ─────────────────────────────────────────────────────────────────────────────
 class AuthRouteRefresh extends ChangeNotifier {
-  AuthRouteRefresh(Stream<dynamic> stream) {
+  AuthRouteRefresh(Stream<AuthState> stream) {
     notifyListeners();
-    _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
+    _authSubscription = stream.listen((authState) {
+      debugPrint(
+          '[AuthRouteRefresh] event: ${authState.event}, session: ${authState.session?.user.email}');
+      if (authState.event == AuthChangeEvent.passwordRecovery) {
+        _passwordRecoveryPending = true;
+      }
+      // Selalu notify — GoRouter akan evaluate redirect sesuai session terkini
+      notifyListeners();
+    });
+
+    final appLinks = AppLinks();
+    _linkSubscription = appLinks.uriLinkStream.listen(_handleLink);
+    unawaited(_restoreLatestLink(appLinks));
   }
 
-  late final StreamSubscription<dynamic> _subscription;
+  late final StreamSubscription<AuthState> _authSubscription;
+  late final StreamSubscription<Uri> _linkSubscription;
+  bool _passwordRecoveryPending = false;
+
+  bool takePasswordRecovery() {
+    if (!_passwordRecoveryPending) return false;
+    _passwordRecoveryPending = false;
+    return true;
+  }
+
+  Future<void> _restoreLatestLink(AppLinks appLinks) async {
+    try {
+      final uri = await appLinks.getLatestLink();
+      if (uri != null) _handleLink(uri);
+    } catch (error) {
+      debugPrint('[AuthRouteRefresh] gagal membaca deep link: $error');
+    }
+  }
+
+  void _handleLink(Uri uri) {
+    if (!AuthLinks.isPasswordReset(uri)) return;
+    _passwordRecoveryPending = true;
+    notifyListeners();
+  }
 
   @override
   void dispose() {
-    _subscription.cancel();
+    _authSubscription.cancel();
+    _linkSubscription.cancel();
     super.dispose();
   }
 }

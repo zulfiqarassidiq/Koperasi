@@ -4,14 +4,30 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   const AppTheme._();
 
-  static ThemeData light() {
-    // Premium Emerald & Deep Navy palette
-    const primary = Color(0xFF00695C); // Teal 800
-    const secondary = Color(0xFFFFA000); // Amber 700
-    const backgroundColor = Color(0xFFF8FAFB);
-    const surfaceColor = Colors.white;
-    const errorColor = Color(0xFFD32F2F);
+  // ─── Brand Colors ───────────────────────────────────────────────────────────
+  /// Primary orange — identitas utama aplikasi
+  static const Color primary = Color(0xFFFB8515);
 
+  /// Secondary — untuk header, text emphasis, secondary actions
+  static const Color secondary = Color(0xFF334155);
+
+  /// Accent Teal — untuk statistik, data visual
+  static const Color accent = Color(0xFF0EA5A4);
+
+  /// Success — untuk status berhasil
+  static const Color success = Color(0xFF22C55E);
+
+  /// Error — untuk validasi gagal, hapus
+  static const Color error = Color(0xFFEF4444);
+
+  /// Warning — untuk stok menipis, pending invite
+  static const Color warning = Color(0xFFF59E0B);
+
+  /// Surface — background light mode yang lebih bersih
+  static const Color surface = Color(0xFFF8FAFC);
+
+  // ─── Light Mode ─────────────────────────────────────────────────────────────
+  static ThemeData light() {
     final scheme = ColorScheme.fromSeed(
       seedColor: primary,
       brightness: Brightness.light,
@@ -19,15 +35,16 @@ class AppTheme {
       onPrimary: Colors.white,
       secondary: secondary,
       onSecondary: Colors.white,
-      surface: surfaceColor,
-      onSurface: const Color(0xFF1A1A1A),
-      error: errorColor,
+      tertiary: accent,
+      surface: surface,
+      onSurface: const Color(0xFF0F172A), // Text emphasis utama
+      error: error,
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: backgroundColor,
+      scaffoldBackgroundColor: surface,
       appBarTheme: const AppBarTheme(
         centerTitle: false,
         backgroundColor: Colors.transparent,
@@ -42,7 +59,7 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: surfaceColor,
+        color: Colors.white,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
@@ -74,9 +91,20 @@ class AppTheme {
           textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
         ),
       ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: primary,
+          side: const BorderSide(color: primary, width: 1.5),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+        ),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surfaceColor,
+        fillColor: surface,
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
         prefixIconColor: const Color(0xFF64748B),
@@ -95,7 +123,7 @@ class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: errorColor),
+          borderSide: const BorderSide(color: error),
         ),
       ),
       listTileTheme: ListTileThemeData(
@@ -109,6 +137,11 @@ class AppTheme {
         side: BorderSide.none,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: primary,
+        foregroundColor: Colors.white,
+        elevation: 4,
+      ),
       dividerTheme: const DividerThemeData(
         space: 1,
         thickness: 1,
@@ -116,18 +149,21 @@ class AppTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: secondary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 8,
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: primary,
       ),
       textTheme: GoogleFonts.plusJakartaSansTextTheme().copyWith(
         displayLarge: GoogleFonts.plusJakartaSans(
           fontWeight: FontWeight.w800,
-          color: const Color(0xFF1A1A1A),
+          color: secondary,
         ),
         titleLarge: GoogleFonts.plusJakartaSans(
           fontWeight: FontWeight.w700,
-          color: const Color(0xFF1A1A1A),
+          color: secondary,
         ),
         bodyMedium: GoogleFonts.plusJakartaSans(
           color: const Color(0xFF475569),
@@ -136,14 +172,11 @@ class AppTheme {
     );
   }
 
+  // ─── Dark Mode ──────────────────────────────────────────────────────────────
   static ThemeData dark() {
-    // Premium Emerald & Deep Navy palette (Dark Mode)
-    const primary = Color(0xFF00897B); // Teal 600 - brighter for dark mode
-    const secondary = Color(0xFFFFB300); // Amber 600
-    const backgroundColor = Color(0xFF0F172A); // Slate 900
-    const surfaceColor = Color(0xFF1E293B); // Slate 800
-    const errorColor = Color(0xFFEF4444); // Red 500
-    const onSurfaceColor = Color(0xFFF8FAFC); // Slate 50
+    const darkBackgroundColor = Color(0xFF0F172A); // Slate 900
+    const darkSurfaceColor = Color(0xFF1E293B); // Slate 800
+    const darkOnSurfaceColor = Color(0xFFF8FAFC); // Slate 50
     const outlineColor = Color(0xFF334155); // Slate 700
 
     final scheme = ColorScheme.fromSeed(
@@ -151,32 +184,33 @@ class AppTheme {
       brightness: Brightness.dark,
       primary: primary,
       onPrimary: Colors.white,
-      secondary: secondary,
-      onSecondary: Colors.white,
-      surface: surfaceColor,
-      onSurface: onSurfaceColor,
-      error: errorColor,
+      secondary: const Color(0xFF94A3B8), // Lighter slate for secondary in dark mode
+      onSecondary: darkBackgroundColor,
+      tertiary: accent,
+      surface: darkSurfaceColor,
+      onSurface: darkOnSurfaceColor,
+      error: error,
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: backgroundColor,
+      scaffoldBackgroundColor: darkBackgroundColor,
       appBarTheme: const AppBarTheme(
         centerTitle: false,
         backgroundColor: Colors.transparent,
-        foregroundColor: onSurfaceColor,
+        foregroundColor: darkOnSurfaceColor,
         elevation: 0,
-        iconTheme: IconThemeData(color: onSurfaceColor),
-        actionsIconTheme: IconThemeData(color: onSurfaceColor),
+        iconTheme: IconThemeData(color: darkOnSurfaceColor),
+        actionsIconTheme: IconThemeData(color: darkOnSurfaceColor),
         titleTextStyle: TextStyle(
-          color: onSurfaceColor,
+          color: darkOnSurfaceColor,
           fontSize: 22,
           fontWeight: FontWeight.w800,
         ),
       ),
       cardTheme: CardThemeData(
-        color: surfaceColor,
+        color: darkSurfaceColor,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
@@ -208,9 +242,20 @@ class AppTheme {
           textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
         ),
       ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: primary,
+          side: const BorderSide(color: primary, width: 1.5),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+        ),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surfaceColor,
+        fillColor: darkSurfaceColor,
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
         prefixIconColor: const Color(0xFF94A3B8),
@@ -229,7 +274,7 @@ class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: errorColor),
+          borderSide: const BorderSide(color: error),
         ),
       ),
       listTileTheme: ListTileThemeData(
@@ -243,6 +288,11 @@ class AppTheme {
         side: BorderSide.none,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: primary,
+        foregroundColor: Colors.white,
+        elevation: 4,
+      ),
       dividerTheme: const DividerThemeData(
         space: 1,
         thickness: 1,
@@ -255,14 +305,17 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 8,
       ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: primary,
+      ),
       textTheme: GoogleFonts.plusJakartaSansTextTheme(ThemeData.dark().textTheme).copyWith(
         displayLarge: GoogleFonts.plusJakartaSans(
           fontWeight: FontWeight.w800,
-          color: onSurfaceColor,
+          color: darkOnSurfaceColor,
         ),
         titleLarge: GoogleFonts.plusJakartaSans(
           fontWeight: FontWeight.w700,
-          color: onSurfaceColor,
+          color: darkOnSurfaceColor,
         ),
         bodyMedium: GoogleFonts.plusJakartaSans(
           color: const Color(0xFFCBD5E1),
@@ -271,4 +324,3 @@ class AppTheme {
     );
   }
 }
-

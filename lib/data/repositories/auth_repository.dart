@@ -39,9 +39,13 @@ class AuthRepository {
   }
 
   Future<void> logout() async {
+    debugPrint('[AuthRepository.logout] Calling signOut...');
     try {
       await _service.signOut();
+      debugPrint(
+          '[AuthRepository.logout] signOut complete. Session should be null now.');
     } on AuthException catch (error) {
+      debugPrint('[AuthRepository.logout] AuthException: ${error.message}');
       throw AppException(error.message, code: error.statusCode);
     }
   }
@@ -69,9 +73,11 @@ class AuthRepository {
       // Strategi: Cek invite SEBELUM signUp (sesi anonim).
       // Jika tabel user_invites mengizinkan akses anonim via anon key, invite langsung
       // terdeteksi. Jika RLS memblokir, kita cek ulang SETELAH signUp.
-      debugPrint('[AuthRepository.register] [PRE-SIGNUP] Checking pending invite for: $email');
+      debugPrint(
+          '[AuthRepository.register] [PRE-SIGNUP] Checking pending invite for: $email');
       Map<String, dynamic>? invite = await _service.getPendingInvite(email);
-      debugPrint('[AuthRepository.register] [PRE-SIGNUP] getPendingInvite result: $invite');
+      debugPrint(
+          '[AuthRepository.register] [PRE-SIGNUP] getPendingInvite result: $invite');
 
       final response = await _service.signUp(
         email: email.trim(),
@@ -83,14 +89,17 @@ class AuthRepository {
       if (user == null) {
         throw const AppException('Registrasi gagal. Silakan coba lagi.');
       }
-      debugPrint('[AuthRepository.register] SignUp success. userId: ${user.id}, hasSession: ${response.session != null}');
+      debugPrint(
+          '[AuthRepository.register] SignUp success. userId: ${user.id}, hasSession: ${response.session != null}');
 
       // Jika invite belum ditemukan (kemungkinan RLS anon memblokir),
       // coba cek ulang dengan sesi user yang baru terdaftar.
       if (invite == null) {
-        debugPrint('[AuthRepository.register] [POST-SIGNUP] Re-checking invite with authenticated session...');
+        debugPrint(
+            '[AuthRepository.register] [POST-SIGNUP] Re-checking invite with authenticated session...');
         invite = await _service.getPendingInvite(email);
-        debugPrint('[AuthRepository.register] [POST-SIGNUP] getPendingInvite result: $invite');
+        debugPrint(
+            '[AuthRepository.register] [POST-SIGNUP] getPendingInvite result: $invite');
       }
 
       if (invite != null) {
@@ -103,7 +112,8 @@ class AuthRepository {
         );
 
         // Buat profil dengan role & koperasi dari invite
-        debugPrint('[AuthRepository.register] upsertProfile => invited user...');
+        debugPrint(
+            '[AuthRepository.register] upsertProfile => invited user...');
         await _service.upsertProfile({
           'id': user.id,
           'nama': nama.trim(),
@@ -112,13 +122,16 @@ class AuthRepository {
         });
 
         // Tandai invite sebagai accepted
-        debugPrint('[AuthRepository.register] acceptInvite id: ${inviteModel.id}');
+        debugPrint(
+            '[AuthRepository.register] acceptInvite id: ${inviteModel.id}');
         await _service.acceptInvite(inviteModel.id);
-        debugPrint('[AuthRepository.register] Invite accepted. User is now [${inviteModel.role.name}].');
+        debugPrint(
+            '[AuthRepository.register] Invite accepted. User is now [${inviteModel.role.name}].');
 
         return true; // ada invite => langsung ke dashboard
       } else {
-        debugPrint('[AuthRepository.register] No invite found => creating owner profile.');
+        debugPrint(
+            '[AuthRepository.register] No invite found => creating owner profile.');
         await _service.upsertProfile({
           'id': user.id,
           'nama': nama.trim(),
@@ -132,7 +145,8 @@ class AuthRepository {
       debugPrint('[AuthRepository.register] AuthException: ${error.message}');
       throw AppException(_mapAuthError(error.message), code: error.statusCode);
     } on PostgrestException catch (error) {
-      debugPrint('[AuthRepository.register] PostgrestException: ${error.message} (code: ${error.code})');
+      debugPrint(
+          '[AuthRepository.register] PostgrestException: ${error.message} (code: ${error.code})');
       throw AppException(error.message, code: error.code);
     }
   }
@@ -241,8 +255,7 @@ class AuthRepository {
     }
   }
 
-  Future<List<UserInviteModel>> getInvitesByKoperasi(
-      String koperasiId) async {
+  Future<List<UserInviteModel>> getInvitesByKoperasi(String koperasiId) async {
     try {
       final result = await _service.getInvitesByKoperasi(koperasiId);
       return result.map(UserInviteModel.fromMap).toList();
@@ -251,8 +264,7 @@ class AuthRepository {
     }
   }
 
-  Future<List<UserProfileModel>> getMembersByKoperasi(
-      String koperasiId) async {
+  Future<List<UserProfileModel>> getMembersByKoperasi(String koperasiId) async {
     try {
       final result = await _service.getMembersByKoperasi(koperasiId);
       return result.map(UserProfileModel.fromMap).toList();
@@ -266,7 +278,7 @@ class AuthRepository {
     try {
       await _service.sendPasswordResetEmail(email.trim());
     } on AuthException catch (error) {
-      throw AppException(error.message, code: error.statusCode);
+      throw AppException(_mapAuthError(error.message), code: error.statusCode);
     }
   }
 
@@ -297,6 +309,12 @@ class AuthRepository {
     }
     if (lower.contains('too many requests')) {
       return 'Terlalu banyak percobaan. Silakan tunggu beberapa saat.';
+    }
+    if (lower.contains('rate limit')) {
+      return 'Batas pengiriman email tercapai. Silakan tunggu sebelum mencoba lagi.';
+    }
+    if (lower.contains('email address not authorized')) {
+      return 'Server email Supabase belum dikonfigurasi untuk mengirim ke alamat ini.';
     }
     return message;
   }

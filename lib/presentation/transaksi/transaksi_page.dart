@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/config/app_locale.dart';
 import '../../core/errors/app_exception.dart';
+import '../../core/theme/app_theme.dart';
 import '../../data/models/produk_model.dart';
 import '../../data/models/cart_item_model.dart';
 import '../../routes/app_routes.dart';
@@ -411,27 +412,36 @@ class _ProductCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isOutOfStock
-                            ? theme.colorScheme.error.withValues(alpha: 0.1)
-                            : const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        isOutOfStock ? 'Habis' : 'Stok: ${product.stok}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: isOutOfStock
-                              ? theme.colorScheme.error
-                              : const Color(0xFF64748B),
-                        ),
-                      ),
+                    Builder(
+                      builder: (context) {
+                        final isLowStock = product.stok > 0 && product.stok <= 10;
+                        final stokColor = isOutOfStock
+                            ? theme.colorScheme.error
+                            : isLowStock
+                                ? AppTheme.warning
+                                : const Color(0xFF64748B);
+                                
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isOutOfStock || isLowStock
+                                ? stokColor.withValues(alpha: 0.1)
+                                : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            isOutOfStock ? 'Habis' : 'Stok: ${product.stok}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: stokColor,
+                            ),
+                          ),
+                        );
+                      }
                     ),
                     Icon(
                       Icons.add_circle_rounded,
