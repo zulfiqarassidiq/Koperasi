@@ -116,7 +116,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ).animate().fadeIn().scale(duration: 600.ms),
                         const SizedBox(height: 24),
                         Text(
-                          'Kasir POS Koperasi',
+                          'Arka',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.headlineMedium?.copyWith(
                             fontWeight: FontWeight.w900,

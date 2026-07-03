@@ -16,7 +16,7 @@
     <!-- USB Host (untuk printer USB di Android) -->
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
     <application
-        android:label="kasir_pos_koperasi"
+        android:label="Arka"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

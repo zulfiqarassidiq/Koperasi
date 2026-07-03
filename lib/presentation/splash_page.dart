@@ -33,7 +33,7 @@ class SplashPage extends StatelessWidget {
                 .scale(curve: Curves.easeOutBack),
             const SizedBox(height: 24),
             Text(
-              'Kasir POS Koperasi',
+              'Arka',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w900,
                     color: const Color(0xFF1E293B),
